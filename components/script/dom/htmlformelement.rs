@@ -1740,25 +1740,27 @@ pub fn encode_multipart_form_data(
     boundary: String,
     encoding: &'static Encoding,
 ) -> Vec<u8> {
-    // Step 1
+    // Step 2
     let mut result = vec![];
 
-    // Step 2
     for entry in form_data.iter_mut() {
-        // TODO: Step 2.1
+        // Step 1.1
+        let entry_name = replace_invalid_newlines(&entry.name);
 
-        // Step 3
         // https://tools.ietf.org/html/rfc7578#section-4
         // NOTE(izgzhen): The encoding here expected by most servers seems different from
         // what spec says (that it should start with a '\r\n').
         let mut boundary_bytes = format!("--{}\r\n", boundary).into_bytes();
         result.append(&mut boundary_bytes);
 
-        // TODO(eijebong): Everthing related to content-disposition it to redo once typed headers
+        // TODO(eijebong): Everything related to content-disposition it to redo once typed headers
         // are capable of it.
         match entry.value {
             FormDatumValue::String(ref s) => {
-                let content_disposition = format!("form-data; name=\"{}\"", entry.name);
+                // Step 1.2
+                let s = replace_invalid_newlines(s);
+
+                let content_disposition = format!("form-data; name=\"{}\"", entry_name);
                 let mut bytes =
                     format!("Content-Disposition: {}\r\n\r\n{}", content_disposition, s)
                         .into_bytes();
@@ -1779,7 +1781,7 @@ pub fn encode_multipart_form_data(
                     )
                 };
 
-                let content_disposition = format!("form-data; name=\"{}\"; {}", entry.name, extra);
+                let content_disposition = format!("form-data; name=\"{}\"; {}", entry_name, extra);
                 // https://tools.ietf.org/html/rfc7578#section-4.4
                 let content_type: Mime = f
                     .upcast::<Blob>()
@@ -1812,4 +1814,28 @@ pub fn generate_boundary() -> String {
     let i2 = random::<u32>();
 
     format!("---------------------------{0}{1}", i1, i2)
+}
+
+/// Replaces all invalid newlines ("\r" and "\n") with "\r\n".
+fn replace_invalid_newlines(str: &str) -> String {
+    println!("ohnod: replace_invalid_newlines: WIP0");
+    println!("ohnod:     str = {:?}", str);
+    let mut buf = String::new();
+    let mut chars = str.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\r' => {
+                if let Some('\n') = chars.peek() {
+                    // Advance one more only when '\r' is followed by '\n'
+                    // to consume whole "\r\n".
+                    _ = chars.next();
+                }
+                buf.push_str("\r\n");
+            },
+            '\n' => buf.push_str("\r\n"),
+            _ => buf.push(c),
+        }
+    }
+    println!("ohnod:     buf = {:?}", buf);
+    buf
 }
