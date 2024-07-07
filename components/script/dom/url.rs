@@ -116,6 +116,41 @@ impl URL {
         Ok(URL::new(global, proto, parsed_url))
     }
 
+    /// <https://url.spec.whatwg.org/#dom-url-parse>
+    pub fn Parse(
+        global: &GlobalScope,
+        url: USVString,
+        base: Option<USVString>,
+    ) -> Option<DomRoot<URL>> {
+        // Step 1.
+        let parsed_base = match base {
+            None => None,
+            Some(base) => {
+                match ServoUrl::parse(&base.0) {
+                    Ok(base) => Some(base),
+                    Err(_) => {
+                        // Step 2.
+                        return None;
+                    },
+                }
+            },
+        };
+        let parsed_url = match ServoUrl::parse_with_base(parsed_base.as_ref(), &url.0) {
+            Ok(url) => url,
+            Err(_) => {
+                // Step 2.
+                return None;
+            },
+        };
+
+        // Skip step 4.
+        // Instead of construcing a new `URLSearchParams` object here, construct
+        // it on-demand inside `URL::SearchParams`.
+
+        // Step 3, 5.
+        Some(URL::new(global, None, parsed_url))
+    }
+
     /// <https://url.spec.whatwg.org/#dom-url-canparse>
     pub fn CanParse(_global: &GlobalScope, url: USVString, base: Option<USVString>) -> bool {
         // Step 1.
